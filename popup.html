@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Digital Store</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">Digital Store – WhatsApp</div>
+    <div class="field">
+      <label>Website URL</label>
+      <input id="baseUrl" placeholder="https://digital-store.top">
+    </div>
+    <div class="field">
+      <label>API Token</label>
+      <input id="token" placeholder="Paste token from Settings">
+    </div>
+    <div class="field">
+      <label>Scope Admin ID (only super admin)</label>
+      <input id="scopeAdminId" placeholder="e.g. 2">
+    </div>
+    <div class="row">
+      <button id="save">Save</button>
+      <button id="test">Test</button>
+    </div>
+    <div class="row">
+      <button id="openPanel">Open Panel</button>
+      <button id="refreshPanel">Refresh Panel</button>
+    </div>
+    <div class="row">
+      <button id="openSite">Open Website</button>
+    </div>
+    <div id="status"></div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

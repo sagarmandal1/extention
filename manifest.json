@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "Digital Store – WhatsApp Helper",
+  "version": "1.0.0",
+  "description": "Smart assistant for digital-store.top on WhatsApp Web. Manage customers, sales, and payments directly from chat.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://digital-store.top/*",
+    "http://localhost/*",
+    "http://localhost:8000/*",
+    "http://127.0.0.1/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://web.whatsapp.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

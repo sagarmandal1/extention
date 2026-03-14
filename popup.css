@@ -1,0 +1,56 @@
+.wrap { 
+  width: 300px; 
+  padding: 16px; 
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; 
+  background: #fff;
+}
+.title { 
+  font-weight: 700; 
+  font-size: 16px;
+  margin-bottom: 16px; 
+  color: #075e54;
+  border-bottom: 2px solid #25d366;
+  padding-bottom: 8px;
+}
+.field { margin-bottom: 12px; }
+label { 
+  display: block; 
+  font-size: 12px; 
+  font-weight: 600;
+  color: #555; 
+  margin-bottom: 6px; 
+}
+input { 
+  width: 100%; 
+  padding: 10px; 
+  border: 1px solid #ddd; 
+  border-radius: 8px; 
+  box-sizing: border-box;
+  outline: none;
+}
+input:focus {
+  border-color: #25d366;
+}
+.row { display: flex; gap: 10px; margin-bottom: 10px; }
+button { 
+  flex: 1; 
+  padding: 10px; 
+  background: #25d366; 
+  color: #fff; 
+  border: none;
+  border-radius: 8px; 
+  cursor: pointer; 
+  font-weight: 600;
+  font-size: 13px;
+  transition: opacity 0.2s;
+}
+button:hover { opacity: 0.9; }
+button#test { background: #075e54; }
+button#openSite { background: #128c7e; }
+#status { 
+  margin-top: 12px; 
+  font-size: 13px; 
+  color: #444; 
+  text-align: center;
+  font-weight: 500;
+}
