@@ -1,96 +1,135 @@
 #ds-wa-panel {
   position: fixed;
   right: 12px;
-  bottom: 12px;
-  width: 340px;
-  max-height: 80vh;
-  background: #fff;
-  color: #222;
-  border: 1px solid rgba(0, 0, 0, .12);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .15);
-  z-index: 999999;
+  top: 12px;
+  width: 360px;
+  height: calc(100vh - 24px);
+  background: #ffffff;
+  color: #111b21;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
   display: flex;
   flex-direction: column;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #ds-wa-panel.ds-hidden {
-  display: none;
+  transform: translateX(400px);
 }
 
 .ds-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, .08);
-  background: #25d366;
-  color: #fff;
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-}
-
-.ds-header-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.ds-refresh-btn {
-  border: none;
-  background: transparent;
-  color: #fff;
-  font-size: 16px;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-}
-
-.ds-refresh-btn:hover {
-  background: rgba(255, 255, 255, .2);
-}
-
-.ds-close {
-  border: none;
-  background: transparent;
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-}
-
-.ds-close:hover {
-  background: rgba(255, 255, 255, .2);
+  padding: 16px 20px;
+  background: #008069;
+  color: #ffffff;
 }
 
 .ds-title {
   font-weight: 700;
-  letter-spacing: 0.5px;
+  font-size: 16px;
+  letter-spacing: 0.3px;
+}
+
+.ds-header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.ds-refresh-btn, .ds-close {
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.ds-refresh-btn:hover, .ds-close:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .ds-tabs {
   display: flex;
-  border-bottom: 1px solid #eee;
-  margin-bottom: 10px;
+  background: #f0f2f5;
+  padding: 4px;
+  margin: 12px 16px;
+  border-radius: 8px;
 }
 
 .ds-tab-btn {
   flex: 1;
-  padding: 8px;
+  padding: 8px 12px;
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  color: #666;
+  color: #54656f;
+  transition: all 0.2s;
 }
 
 .ds-tab-btn.active {
-  color: #25d366;
-  border-bottom-color: #25d366;
+  background: #ffffff;
+  color: #008069;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.ds-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px 16px;
+}
+
+.ds-card {
+  background: #fff;
+  border: 1px solid #e9edef;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.ds-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.ds-btn-primary {
+  background: #00a884;
+  color: #fff;
+}
+
+.ds-btn-primary:hover {
+  background: #008f72;
+}
+
+.ds-btn-outline {
+  background: transparent;
+  border: 1.5px solid #00a884;
+  color: #00a884;
+}
+
+.ds-btn-outline:hover {
+  background: rgba(0, 168, 132, 0.05);
 }
 
 .ds-tab-content.ds-hidden {

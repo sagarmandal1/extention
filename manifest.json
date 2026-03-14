@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Digital Store – WhatsApp Helper",
-  "version": "1.0.0",
-  "description": "Smart assistant for digital-store.top on WhatsApp Web. Manage customers, sales, and payments directly from chat.",
+  "name": "Digital Store – CRM for WhatsApp",
+  "version": "1.1.0",
+  "description": "Powerful CRM assistant for WhatsApp Web. Manage customers, sales, expenses, and invoices directly from your chat.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": [
     "storage",
     "scripting",

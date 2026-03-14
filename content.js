@@ -129,16 +129,23 @@
       return '';
     };
 
-    const selected = root.querySelector('[aria-selected="true"]') || document.querySelector('[aria-selected="true"]');
-    const direct = pickKeyFromEl(selected) || pickKeyFromEl(selected && selected.closest('[data-id], [data-jid], [data-testid], [id]'));
-    if (direct) return direct;
-
-    const header = document.querySelector('header');
+    // ১. চ্যাট হেডার থেকে কি বের করার চেষ্টা (সবচেয়ে নির্ভরযোগ্য যখন চ্যাট ওপেন থাকে)
+    const header = document.querySelector('#main header') || document.querySelector('header');
     const headerKey = pickKeyFromEl(header && header.closest('[data-id], [data-jid], [data-testid], [id]'));
     if (headerKey) return headerKey;
 
-    const anyKey = pickKeyFromEl(root.querySelector('[data-id^="true_"], [data-jid]'));
-    if (anyKey) return anyKey;
+    // ২. সাইডবারে বর্তমানে সিলেক্টেড চ্যাট খোঁজা
+    const selected = root.querySelector('[aria-selected="true"]') ||
+      document.querySelector('[aria-selected="true"]') ||
+      root.querySelector('div[role="listitem"]._ak8q._ak8s');
+
+    const direct = pickKeyFromEl(selected) || pickKeyFromEl(selected && selected.closest('[data-id], [data-jid], [data-testid], [id]'));
+    if (direct) return direct;
+
+    // ৩. URL থেকে কি বের করা
+    const url = window.location.href;
+    const match = url.match(/\/chat\/(\d+)/) || url.match(/\/([\d]+)@/);
+    if (match && match[1]) return `url-id:${match[1]}`;
 
     return '';
   }
@@ -178,14 +185,18 @@
   }
 
   function findRightPanelPhone() {
+    const drawer = document.querySelector('[data-testid="contact-info-drawer"]') ||
+      document.querySelector('[data-testid="drawer-right"]');
+    if (!drawer) return '';
+
     const w = window.innerWidth || 1200;
-    const maxTop = 420;
+    const maxTop = 600;
     const minLeft = w * 0.55;
 
-    const nodes = document.querySelectorAll('span, div');
+    const nodes = drawer.querySelectorAll('span, div');
     let best = { digits: '', score: -1, rect: null };
 
-    const limit = Math.min(nodes.length, 2500);
+    const limit = Math.min(nodes.length, 1000);
     for (let i = 0; i < limit; i++) {
       const el = nodes[i];
       if (!el) continue;
@@ -195,8 +206,10 @@
       if (!digits) continue;
       const r = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
       if (!r) continue;
-      if (r.left < minLeft) continue;
-      if (r.bottom < 0 || r.top > maxTop) continue;
+      // ড্রেয়ারের ভেতরে হলে বামের সীমাবদ্ধতা একটু শিথিল করা যায়, 
+      // তবে অন্তত স্ক্রিনের ডান অর্ধেক হতে হবে
+      if (r.left < w * 0.5) continue;
+
       const hasPlus = txt.includes('+');
       const posBonus = Math.max(0, maxTop - r.top) / 4;
       const sideBonus = Math.max(0, r.left - minLeft) / 40;
@@ -208,77 +221,6 @@
     }
 
     return best.digits;
-  }
-
-  function findContactInfoRoot() {
-    const rootNodes = Array.from(document.querySelectorAll('aside, section, div'));
-    const must = ['Contact info'];
-    const hints = [
-      'Media, links and docs',
-      'Starred messages',
-      'Mute notifications',
-      'Advanced chat privacy',
-      'Encryption',
-    ];
-
-    const w = window.innerWidth || 1200;
-    let best = null;
-    let bestScore = -1;
-    for (const el of rootNodes) {
-      const t = (el.textContent || '').trim();
-      if (!t) continue;
-      if (!must.every(m => t.includes(m))) continue;
-      const hintCount = hints.reduce((acc, h) => acc + (t.includes(h) ? 1 : 0), 0);
-      const r = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
-      if (!r) continue;
-      if (r.width < 240 || r.height < 260) continue;
-      if (r.left < w * 0.35) continue;
-      const score = hintCount * 10 + Math.max(0, 600 - r.top) / 50 + Math.max(0, r.left - w * 0.35) / 50;
-      if (score > bestScore) {
-        bestScore = score;
-        best = el;
-      }
-    }
-    return best;
-  }
-
-  function findPhoneInScope(rootEl) {
-    if (!rootEl) return '';
-    let bestDigits = '';
-    let bestScore = -1;
-
-    const consider = (txt, idx) => {
-      if (!txt) return;
-      const raw = String(txt);
-      const hasPlus = raw.includes('+');
-      const digits = findPhoneCandidate(raw);
-      if (!digits) return;
-      const score = scorePhoneCandidate(digits, { hasPlus, idx });
-      if (score > bestScore) {
-        bestScore = score;
-        bestDigits = digits;
-      }
-    };
-
-    const attrs = ['aria-label', 'title'];
-    attrs.forEach((a, i) => consider(rootEl.getAttribute && rootEl.getAttribute(a), i));
-    consider(rootEl.textContent, 10);
-
-    const nodes = rootEl.querySelectorAll
-      ? rootEl.querySelectorAll('span[title], span[dir="auto"], div[role="heading"], h1, h2, h3, [aria-label]')
-      : [];
-    let idx = 20;
-    for (const n of nodes) {
-      if (!n) continue;
-      if (n.getAttribute) {
-        consider(n.getAttribute('title'), idx++);
-        consider(n.getAttribute('aria-label'), idx++);
-      }
-      consider(n.textContent, idx++);
-      if (idx > 260) break;
-    }
-
-    return bestDigits;
   }
 
   function findPhoneFromJidInScope(rootEl) {
@@ -315,89 +257,6 @@
       if (idx > 200) break;
     }
     return bestDigits;
-  }
-
-  function findPhoneInContactInfoPanel() {
-    const root = findContactInfoRoot();
-    if (!root) return '';
-    const w = window.innerWidth || 1200;
-    let bestDigits = '';
-    let bestScore = -1;
-
-    const nodes = root.querySelectorAll('span, div, h1, h2, h3');
-    let idx = 0;
-    for (const n of nodes) {
-      idx++;
-      const txt = (n.textContent || '').trim();
-      if (!txt) continue;
-      const digits = findPhoneCandidate(txt);
-      if (!digits) continue;
-      const r = n.getBoundingClientRect ? n.getBoundingClientRect() : null;
-      if (!r) continue;
-      if (r.left < w * 0.35) continue;
-      if (r.top > 260) continue;
-      const hasPlus = txt.includes('+');
-      const score = scorePhoneCandidate(digits, { hasPlus, idx }) + Math.max(0, 260 - r.top) / 5;
-      if (score > bestScore) {
-        bestScore = score;
-        bestDigits = digits;
-      }
-      if (bestScore >= 90) break;
-      if (idx > 400) break;
-    }
-    return bestDigits;
-  }
-
-  function findPhoneInHeader() {
-    const header = document.querySelector('header');
-    if (!header) return '';
-    let bestDigits = '';
-    let bestScore = -1;
-    const nodes = header.querySelectorAll('span, div, h1, h2, h3');
-    let idx = 0;
-    for (const n of nodes) {
-      idx++;
-      const txt = (n.textContent || '').trim();
-      if (!txt) continue;
-      const digits = findPhoneCandidate(txt);
-      if (!digits) continue;
-      const r = n.getBoundingClientRect ? n.getBoundingClientRect() : null;
-      if (!r) continue;
-      if (r.top > 140) continue;
-      const hasPlus = txt.includes('+');
-      const score = scorePhoneCandidate(digits, { hasPlus, idx }) + Math.max(0, 140 - r.top) / 5;
-      if (score > bestScore) {
-        bestScore = score;
-        bestDigits = digits;
-      }
-      if (bestScore >= 90) break;
-      if (idx > 250) break;
-    }
-    return bestDigits;
-  }
-
-  function findPhoneInDom(scopes) {
-    const els = [];
-    for (const s of (Array.isArray(scopes) ? scopes : [])) {
-      if (s) els.push(s);
-    }
-    const rightPhone = findRightPanelPhone();
-    if (rightPhone) return rightPhone;
-    const fromContact = findPhoneInContactInfoPanel();
-    if (fromContact) return fromContact;
-    for (const r of els) {
-      const fromJid = findPhoneFromJidInScope(r);
-      if (fromJid) return fromJid;
-    }
-    const fromHeader = findPhoneInHeader();
-    if (fromHeader) return fromHeader;
-    els.push(document.querySelector('#app [aria-selected="true"]') || document.querySelector('[aria-selected="true"]'));
-
-    for (const root of els.filter(Boolean)) {
-      const digits = findPhoneInScope(root);
-      if (digits) return digits;
-    }
-    return '';
   }
 
   function escapeHtml(str) {
@@ -491,71 +350,84 @@
     };
 
     const stableKey = getStableChatKey();
+    const header = document.querySelector('#main header') || document.querySelector('header');
     const selected = document.querySelector('#app [aria-selected="true"]') || document.querySelector('[aria-selected="true"]');
-    const rightPhone = findRightPanelPhone();
-    const header = document.querySelector('header');
 
-    if (rightPhone) {
-      const keyBase = stableKey || rightPhone;
-      return { key: keyBase, titleKey: '', name: '', phone: rightPhone };
-    }
+    let name = '';
+    let phone = '';
 
+    // ১. প্রথমেই চ্যাট হেডার থেকে নাম এবং ফোন নেওয়ার চেষ্টা (সবচেয়ে নির্ভরযোগ্য)
     if (header) {
-      const spans = header.querySelectorAll('span[dir="auto"][title]');
-      for (const span of spans) {
-        const title = span.getAttribute('title').trim();
-        const phone = extractPhone(title);
-        if (phone) return { key: stableKey || title, titleKey: title, name: title, phone };
-      }
-
       const titleEl = header.querySelector('[data-testid="conversation-info-header"] span') ||
         header.querySelector('div[role="heading"] span') ||
-        header.querySelector('span.selectable-text');
+        header.querySelector('span.selectable-text') ||
+        header.querySelector('span[dir="auto"]');
+
       if (titleEl) {
-        const title = titleEl.textContent.trim();
-        const phoneFromTitle = extractPhone(title);
-        const phone = phoneFromTitle || findPhoneInDom([selected, header]);
-        return { key: stableKey || title, titleKey: title, name: title, phone };
+        const titleText = (titleEl.getAttribute('title') || titleEl.textContent || '').trim();
+        const extracted = extractPhone(titleText);
+        if (extracted) {
+          phone = extracted;
+          name = '';
+        } else {
+          name = titleText;
+        }
+      }
+
+      if (!phone) {
+        const subTitleEl = header.querySelector('[data-testid="conversation-info-header-status"]') ||
+          header.querySelector('span._ak8k') ||
+          header.querySelector('div._am78');
+        if (subTitleEl) {
+          const subText = subTitleEl.textContent.trim();
+          phone = extractPhone(subText);
+        }
+      }
+
+      if (!phone) {
+        phone = findPhoneFromJidInScope(header);
       }
     }
 
-    const sidebar = document.querySelector('[data-testid="contact-info-drawer"]') ||
-      document.querySelector('[data-testid="drawer-right"]') ||
-      document.querySelector('section'); // চ্যাট ডিটেইলস সেকশন
-    if (sidebar) {
-      const sidebarTitleEls = [
-        sidebar.querySelector('[data-testid="contact-info-title"]'),
-        sidebar.querySelector('span[data-testid="contact-info-header-title"]'),
-        sidebar.querySelector('span[dir="auto"][title]'),
-        sidebar.querySelector('.selectable-text.copyable-text')
-      ];
-      for (const el of sidebarTitleEls) {
-        if (el) {
-          const title = (el.getAttribute('title') || el.textContent || '').trim();
-          if (title) {
-            const phoneFromTitle = extractPhone(title);
-            const phone = phoneFromTitle || findPhoneInDom([selected, sidebar]);
-            return { key: stableKey || title, titleKey: title, name: title, phone };
-          }
+    // ২. যদি হেডার থেকে নাম না পাওয়া যায়, তবে সিলেক্টেড সাইডবার থেকে নাম নেওয়া
+    if (!name && selected) {
+      const titleEl = selected.querySelector('span[title]') || selected.querySelector('[dir="auto"]');
+      const titleText = titleEl ? (titleEl.getAttribute('title') || titleEl.textContent || '').trim() : '';
+      if (!extractPhone(titleText)) {
+        name = titleText;
+      }
+    }
+
+    // ৩. ফোন নম্বর খোঁজার অন্যান্য চেষ্টা (যদি হেডার থেকে না পাওয়া যায়)
+    if (!phone && selected) {
+      phone = findPhoneFromJidInScope(selected);
+    }
+    // ৩.৩. ডান পাশের ড্রয়ার থেকে খোঁজা (শুধুমাত্র যদি ড্রয়ারটি বর্তমান চ্যাটের জন্য হয়)
+    if (!phone) {
+      const drawer = document.querySelector('[data-testid="contact-info-drawer"]') || document.querySelector('[data-testid="drawer-right"]');
+      if (drawer) {
+        const drawerTitleEl = drawer.querySelector('[data-testid="contact-info-title"]') || drawer.querySelector('span[dir="auto"]');
+        const drawerTitle = drawerTitleEl ? (drawerTitleEl.getAttribute('title') || drawerTitleEl.textContent || '').trim() : '';
+        // যদি ড্রয়ারের নাম এবং চ্যাটের নাম মিলে, তবেই ড্রয়ার থেকে নাম্বার নেব
+        if (!name || !drawerTitle || name === drawerTitle) {
+          phone = findRightPanelPhone();
         }
       }
     }
 
-    // ৪. যদি উপরে কোথাও না পাওয়া যায়, তবে পুরো পেজে dir="auto" সহ চ্যাট টাইটেল খোঁজা
-    // এটি শেষ চেষ্টা হিসেবে করা হচ্ছে
-    const activeChat = document.querySelector('div[aria-selected="true"]');
-    if (activeChat) {
-      const span = activeChat.querySelector('span[dir="auto"][title]');
-      if (span) {
-        const title = span.getAttribute('title').trim();
-        const phone = extractPhone(title);
-        return { key: stableKey || title, titleKey: title, name: title, phone };
-      }
+    if (name || phone) {
+      return {
+        key: [stableKey, name, phone].filter(Boolean).join('|'),
+        titleKey: name,
+        name: name,
+        phone: phone || ''
+      };
     }
 
     if (stableKey) {
-      return { key: stableKey, titleKey: '', name: '', phone: findPhoneInDom([selected, header]) };
+      return { key: stableKey, titleKey: '', name: '', phone: '' };
     }
+
     return null;
   }
 
@@ -566,45 +438,56 @@
       panel.id = 'ds-wa-panel';
       panel.innerHTML = `
         <div class="ds-header">
-          <span class="ds-title">Digital Store</span>
+          <div class="ds-title">Digital Store CRM</div>
           <div class="ds-header-actions">
-            <button class="ds-refresh-btn" id="ds-refresh-now" title="রিফ্রেশ">↻</button>
-            <button class="ds-close" title="হাইড">×</button>
+            <button class="ds-refresh-btn" id="ds-refresh-now" title="রিফ্রেশ">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path></svg>
+            </button>
+            <button class="ds-close" title="হাইড">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
           </div>
         </div>
+        <div class="ds-tabs">
+          <button class="ds-tab-btn active" data-tab="customer">কাস্টমার</button>
+          <button class="ds-tab-btn" data-tab="tools">অন্যান্য টুলস</button>
+        </div>
         <div class="ds-body">
-          <div class="ds-tabs">
-            <button class="ds-tab-btn active" data-tab="customer">কাস্টমার</button>
-            <button class="ds-tab-btn" data-tab="tools">অন্যান্য</button>
-          </div>
           <div class="ds-tab-content" id="ds-tab-customer">
-            <div class="ds-section" id="ds-customer">Loading...</div>
-            <div class="ds-actions" id="ds-actions"></div>
-            <div class="ds-section" id="ds-recent"></div>
+            <div id="ds-customer">
+              <div class="ds-card" style="text-align:center; color:#666; padding:40px 20px;">
+                চ্যাট সিলেক্ট করুন...
+              </div>
+            </div>
+            <div id="ds-actions"></div>
+            <div id="ds-recent"></div>
           </div>
           <div class="ds-tab-content ds-hidden" id="ds-tab-tools">
-            <div class="ds-section">
-              <div class="ds-subtitle">ব্যবসায়িক টুলস</div>
-              <div class="ds-actions">
-                <button class="ds-btn" id="ds-expense-add">খরচ যোগ করুন</button>
-                <button class="ds-btn" id="ds-price-check">প্রাইস লিস্ট</button>
-                <button class="ds-btn ds-btn-secondary" id="ds-due-list">বাকি তালিকা</button>
-                <button class="ds-btn ds-btn-secondary" id="ds-daily-stats">আজকের রিপোর্ট</button>
+            <div class="ds-card">
+              <div style="font-weight:700; margin-bottom:12px; font-size:14px; color:#008069;">কুইক অ্যাকশন</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <button class="ds-btn ds-btn-primary" id="ds-expense-add">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  খরচ যোগ
+                </button>
+                <button class="ds-btn ds-btn-outline" id="ds-price-check">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                  প্রাইস চেক
+                </button>
+                <button class="ds-btn ds-btn-outline" id="ds-due-list">বাকি তালিকা</button>
+                <button class="ds-btn ds-btn-outline" id="ds-daily-stats">আজকের রিপোর্ট</button>
               </div>
             </div>
-            <div class="ds-section">
-              <div class="ds-subtitle">সাইট শর্টকাট</div>
-              <div class="ds-actions">
-                <a class="ds-link" id="ds-link-customers" target="_blank" rel="noopener noreferrer" href="#">Customers</a>
-                <a class="ds-link" id="ds-link-products" target="_blank" rel="noopener noreferrer" href="#">Products</a>
-                <a class="ds-link" id="ds-link-sales" target="_blank" rel="noopener noreferrer" href="#">Sales</a>
-                <a class="ds-link" id="ds-link-dues" target="_blank" rel="noopener noreferrer" href="#">Due</a>
-                <a class="ds-link" id="ds-link-expenses" target="_blank" rel="noopener noreferrer" href="#">Expenses</a>
-                <a class="ds-link" id="ds-link-reports" target="_blank" rel="noopener noreferrer" href="#">Reports</a>
-                <a class="ds-link" id="ds-link-settings" target="_blank" rel="noopener noreferrer" href="#">Settings</a>
+            
+            <div class="ds-card">
+              <div style="font-weight:700; margin-bottom:12px; font-size:14px; color:#54656f;">শর্টকাট লিংক</div>
+              <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                <a class="ds-btn ds-btn-outline" style="width:auto; font-size:12px; padding:6px 12px; text-decoration:none;" id="ds-link-customers" target="_blank" href="#">Customers</a>
+                <a class="ds-btn ds-btn-outline" style="width:auto; font-size:12px; padding:6px 12px; text-decoration:none;" id="ds-link-products" target="_blank" href="#">Products</a>
+                <a class="ds-link" style="font-size:13px; color:#008069; margin-top:10px; display:block; width:100%; text-align:center;" id="ds-link-settings" target="_blank" href="#">Open Settings</a>
               </div>
             </div>
-            <div class="ds-section" id="ds-tools-output"></div>
+            <div id="ds-tools-output"></div>
           </div>
         </div>
       `;
@@ -982,6 +865,12 @@
           <label class="ds-label">নোট</label>
           <textarea class="ds-textarea" id="ds-sale-notes" placeholder="ঐচ্ছিক"></textarea>
         </div>
+        <div class="ds-field">
+          <label class="ds-checkbox-label" style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="ds-sale-send-inv" style="width:16px; height:16px; margin:0;" checked> 
+            <span>কাস্টমারকে ইনভয়েস পাঠান</span>
+          </label>
+        </div>
         <div class="ds-modal-actions">
           <button class="ds-btn ds-btn-secondary ds-btn-block" type="button" id="ds-sale-cancel">বাতিল</button>
           <button class="ds-btn ds-btn-block" type="button" id="ds-sale-save">সেভ</button>
@@ -1046,6 +935,8 @@
           const qty = Math.max(1, Math.min(999, Number(qtyEl.value || 1) || 1));
           const payment_amount = Number(overlay.querySelector('#ds-sale-pay').value || 0) || 0;
           const notes = (overlay.querySelector('#ds-sale-notes').value || '').trim();
+          const sendInv = overlay.querySelector('#ds-sale-send-inv').checked;
+
           const res = await apiPost('ajax_quick_sale', {
             customer_id: c.id,
             amount,
@@ -1057,8 +948,13 @@
           });
           if (res.ok) {
             close();
+            if (sendInv && res.sale_id) {
+              await apiPost('ajax_send_invoice', { sale_id: res.sale_id });
+              openToast('সেল যোগ হয়েছে এবং ইনভয়েস পাঠানো হয়েছে');
+            } else {
+              openToast('সেল যোগ হয়েছে');
+            }
             await loadSafe(panel, identity);
-            openToast('সেল যোগ হয়েছে');
           } else {
             openToast(res.error || 'ব্যর্থ হয়েছে');
           }
@@ -1262,96 +1158,100 @@
     const actionsEl = panel.querySelector('#ds-actions');
     const recentEl = panel.querySelector('#ds-recent');
 
-    customerEl.textContent = 'Loading...';
+    // ডাটা লোড করার আগে প্যানেলটি পুরোপুরি পরিষ্কার করা
+    customerEl.innerHTML = '<div class="ds-muted">লোড হচ্ছে...</div>';
     actionsEl.innerHTML = '';
     recentEl.innerHTML = '';
 
+    const nameCandidate = (identity && identity.name) ? String(identity.name).trim() : '';
     let phoneDigits = (identity && identity.phone) ? extractDigits(identity.phone) : '';
     phoneDigits = normalizePhoneDigits(phoneDigits);
-    if (!phoneDigits) {
-      const keys = [];
-      if (identity && identity.key) keys.push(String(identity.key));
-      if (identity && identity.titleKey) keys.push(String(identity.titleKey));
-      if (identity && identity.name) keys.push(String(identity.name));
+
+    // ১. প্রথমে ফোন নম্বর দিয়ে সার্চ করা (যদি পাওয়া যায়)
+    if (phoneDigits) {
+      const lookup = await apiGet('ajax_customer_lookup', { phone: phoneDigits });
+      if (lookup.ok && lookup.found) {
+        let ledger = null;
+        if (lookup.customer && lookup.customer.id) {
+          ledger = await apiGet('ajax_customer_ledger_events', { customer_id: lookup.customer.id });
+        }
+        await render(panel, { ...(identity || {}), phone: phoneDigits }, lookup, ledger);
+        return;
+      }
+    }
+
+    // ২. যদি ফোন নম্বর দিয়ে না পাওয়া যায়, তবে নাম দিয়ে সার্চ করা
+    // এখানে চেক করছি যে নাম ক্যান্ডিডেটটি কি আসলেই কোনো ফোন নম্বর কিনা (যদি হয় তবে নাম হিসেবে সার্চ করব না)
+    if (nameCandidate && nameCandidate.length >= 2 && !extractPhoneFromJidString(nameCandidate) && !normalizePhoneDigits(extractDigits(nameCandidate))) {
+      const lookupByName = await apiGet('ajax_customer_lookup', { name: nameCandidate });
+      if (lookupByName && lookupByName.ok && lookupByName.found) {
+        const cid = lookupByName.customer.id;
+        const derivedPhone = normalizePhoneDigits(extractDigits(lookupByName.customer.phone || ''));
+        const ledger = await apiGet('ajax_customer_ledger_events', { customer_id: cid });
+        await render(panel, { ...(identity || {}), phone: derivedPhone, nameMatch: true }, lookupByName, ledger);
+        return;
+      }
+    }
+
+    // ৩. বাইন্ডিং চেক (শুধুমাত্র তখনই যখন কোনো সঠিক ফোন নম্বর বা নাম পাওয়া যায়নি)
+    // এবং শুধুমাত্র তখনই যখন চ্যাটটি চেনা যায় (stableKey আছে)
+    const keys = [];
+    if (identity && identity.key) keys.push(String(identity.key));
+    if (identity && identity.titleKey) keys.push(String(identity.titleKey));
+    if (identity && identity.name) keys.push(String(identity.name));
+
+    if (keys.length > 0) {
       const bindings = await getChatBindings();
       for (const k of keys) {
         const v = bindings[k] || bindings[normalizeKey(k)];
         if (v) {
-          phoneDigits = normalizePhoneDigits(extractDigits(v));
-          if (phoneDigits) break;
+          const boundPhone = normalizePhoneDigits(extractDigits(v));
+          // যদি বাইন্ডিংয়ের ফোন নম্বর বর্তমান ডিটেক্ট করা ফোন নম্বরের চেয়ে আলাদা হয়
+          if (boundPhone && boundPhone !== phoneDigits) {
+            const lookupBound = await apiGet('ajax_customer_lookup', { phone: boundPhone });
+            if (lookupBound.ok && lookupBound.found) {
+              const ledger = await apiGet('ajax_customer_ledger_events', { customer_id: lookupBound.customer.id });
+              await render(panel, { ...(identity || {}), phone: boundPhone }, lookupBound, ledger);
+              return;
+            }
+          }
         }
       }
     }
 
-    if (!phoneDigits) {
-      const nameCandidate = ((identity && (identity.titleKey || identity.name)) ? String(identity.titleKey || identity.name) : '').trim();
-      if (nameCandidate && nameCandidate.length >= 3) {
-        const byName = await apiGet('ajax_customer_lookup', { name: nameCandidate });
-        if (byName && byName.ok && byName.found && byName.customer && byName.customer.id) {
-          const cid = byName.customer.id;
-          const derivedPhone = normalizePhoneDigits(extractDigits(byName.customer.phone || ''));
-          const ledger = await apiGet('ajax_customer_ledger_events', { customer_id: cid });
-          await render(panel, { ...(identity || {}), phone: derivedPhone, nameMatch: true }, byName, ledger);
-          return;
-        }
-      }
-
-      const display = (identity && (identity.titleKey || identity.name || identity.key)) ? (identity.titleKey || identity.name || identity.key) : 'Unknown';
-      customerEl.innerHTML = `
-        <div style="margin-bottom:10px;"><b>${escapeHtml(display)}</b></div>
-        <div class="ds-muted" style="margin-bottom:10px;">এই চ্যাট থেকে ফোন নম্বর পাওয়া যায়নি। ফোন সেট করলে সবসময় ফোন দিয়ে মিলাবে।</div>
-      `;
-      actionsEl.innerHTML = `<button class="ds-btn" id="ds-bind-phone" style="width:100%">এই চ্যাটের ফোন সেট করুন</button>`;
-      actionsEl.querySelector('#ds-bind-phone').onclick = async () => {
-        const raw = prompt('ফোন নম্বর লিখুন (+880...):', '') || '';
-        const digits = normalizePhoneDigits(extractDigits(raw));
-        if (!digits) {
-          alert('সঠিক ফোন নম্বর দিন');
-          return;
-        }
-        const keys = [];
-        if (identity && identity.key) keys.push(String(identity.key));
-        if (identity && identity.titleKey) keys.push(String(identity.titleKey));
-        if (identity && identity.name) keys.push(String(identity.name));
-        if (!keys.length) {
-          alert('চ্যাট কী পাওয়া যায়নি');
-          return;
-        }
-        await setChatBindings(keys, digits);
-        await loadSafe(panel, { ...(identity || {}), phone: digits });
-      };
-      return;
-    }
-
-    if (identity && !identity.nameMatch) {
-      const keys = [];
-      if (identity.key) keys.push(String(identity.key));
-      if (identity.titleKey) keys.push(String(identity.titleKey));
-      if (identity.name) keys.push(String(identity.name));
-      if (keys.length) {
-        await setChatBindings(keys, phoneDigits);
-      }
-    }
-
-    const nameCandidate = ((identity && (identity.titleKey || identity.name)) ? String(identity.titleKey || identity.name) : '').trim();
-    const lookup = await apiGet('ajax_customer_lookup', { phone: phoneDigits, name: nameCandidate });
-    let ledger = null;
-    if (lookup.ok && lookup.found && lookup.customer && lookup.customer.id) {
-      ledger = await apiGet('ajax_customer_ledger_events', { customer_id: lookup.customer.id });
-    }
-    await render(panel, { ...(identity || {}), phone: phoneDigits }, lookup, ledger);
+    // ৪. কিছুই পাওয়া না গেলে
+    const display = nameCandidate || phoneDigits || 'Unknown';
+    customerEl.innerHTML = `
+      <div style="margin-bottom:10px;"><b>${escapeHtml(display)}</b></div>
+      <div class="ds-muted" style="margin-bottom:10px;">এই কাস্টমারটি ডাটাবেসে নেই।</div>
+    `;
+    actionsEl.innerHTML = `<button class="ds-btn ds-btn-block" id="ds-add-manual">+ কাস্টমার যোগ করুন</button>`;
+    actionsEl.querySelector('#ds-add-manual').onclick = () => {
+      render(panel, { name: nameCandidate, phone: phoneDigits }, { ok: true, found: false }, null);
+    };
   }
 
   async function boot(forceRefresh) {
     const panel = ensurePanel();
     panel.classList.remove('ds-hidden'); // প্যানেলটি সবসময় দৃশ্যমান রাখুন
 
+    const getFullKey = (id) => {
+      const header = document.querySelector('#main header') || document.querySelector('header');
+      const headerTitle = header ? (header.querySelector('[data-testid="conversation-info-header"] span') || header.querySelector('div[role="heading"] span') || header.querySelector('span[dir="auto"]')) : null;
+      const headerText = headerTitle ? (headerTitle.getAttribute('title') || headerTitle.textContent || '').trim() : '';
+      const url = window.location.href;
+      if (!id) return 'none|' + headerText + '|' + url;
+      return String([id.key || '', id.titleKey || '', extractDigits(id.phone || ''), headerText, url].join('|'));
+    };
+
     const idNow = getChatIdentity();
-    const keyNow = idNow ? String([idNow.key || '', idNow.titleKey || '', extractDigits(idNow.phone || '')].join('|')) : '';
+    const keyNow = getFullKey(idNow);
+
     if (idNow && (forceRefresh || !panel.dataset.lastKey || panel.dataset.lastKey !== keyNow)) {
       panel.dataset.lastKey = keyNow;
       await loadSafe(panel, idNow);
     } else if (!idNow) {
+      panel.dataset.lastKey = keyNow;
       panel.querySelector('#ds-customer').innerHTML = '<div class="ds-muted">কাস্টমার লোড করার জন্য একটি চ্যাট ওপেন করুন</div>';
       panel.querySelector('#ds-actions').innerHTML = '';
       panel.querySelector('#ds-recent').innerHTML = '';
@@ -1359,27 +1259,28 @@
 
     if (booted) return;
     booted = true;
-    observer = new MutationObserver(async () => {
+
+    const checkAndReload = async () => {
       const id = getChatIdentity();
-      const key = id ? String([id.key || '', id.titleKey || '', extractDigits(id.phone || '')].join('|')) : '';
-      if (key && panel.dataset.lastKey !== key) {
+      const key = getFullKey(id);
+      if (panel.dataset.lastKey !== key) {
         panel.dataset.lastKey = key;
-        await loadSafe(panel, id);
-        panel.classList.remove('ds-hidden');
+        if (id) {
+          await loadSafe(panel, id);
+          panel.classList.remove('ds-hidden');
+        } else {
+          panel.querySelector('#ds-customer').innerHTML = '<div class="ds-muted">কাস্টমার লোড করার জন্য একটি চ্যাট ওপেন করুন</div>';
+          panel.querySelector('#ds-actions').innerHTML = '';
+          panel.querySelector('#ds-recent').innerHTML = '';
+        }
       }
-    });
+    };
+
+    observer = new MutationObserver(checkAndReload);
     observer.observe(document.body, { subtree: true, childList: true });
 
     if (!pollTimer) {
-      pollTimer = setInterval(() => {
-        const id = getChatIdentity();
-        const key = id ? String([id.key || '', id.titleKey || '', extractDigits(id.phone || '')].join('|')) : '';
-        if (key && panel.dataset.lastKey !== key) {
-          panel.dataset.lastKey = key;
-          loadSafe(panel, id);
-          panel.classList.remove('ds-hidden');
-        }
-      }, 800);
+      pollTimer = setInterval(checkAndReload, 500); // পোলিং টাইম কমিয়ে দ্রুত আপডেট নিশ্চিত করা
     }
   }
 

@@ -7,31 +7,49 @@
 </head>
 <body>
   <div class="wrap">
-    <div class="title">Digital Store – WhatsApp</div>
-    <div class="field">
-      <label>Website URL</label>
-      <input id="baseUrl" placeholder="https://digital-store.top">
+    <div class="header">
+      <div class="title">Digital Store</div>
+      <div class="subtitle">WhatsApp Helper</div>
     </div>
-    <div class="field">
-      <label>API Token</label>
-      <input id="token" placeholder="Paste token from Settings">
+
+    <div class="content">
+      <div class="field">
+        <label>Website URL</label>
+        <div class="input-wrap">
+          <input id="baseUrl" placeholder="https://digital-store.top">
+        </div>
+      </div>
+      
+      <div class="field">
+        <label>API Token</label>
+        <div class="input-wrap">
+          <input id="token" placeholder="Paste token from Settings">
+        </div>
+      </div>
+      
+      <div class="field">
+        <label>Scope Admin ID</label>
+        <div class="input-wrap">
+          <input id="scopeAdminId" placeholder="e.g. 2 (Super admin only)">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="save" class="btn-primary">Save Settings</button>
+        <button id="test" class="btn-secondary">Test Connection</button>
+      </div>
+
+      <hr class="divider">
+
+      <div class="panel-controls">
+        <button id="openPanel" class="btn-outline">Open Panel</button>
+        <button id="refreshPanel" class="btn-outline">Refresh Panel</button>
+      </div>
+
+      <button id="openSite" class="btn-link">Open Web Dashboard</button>
+      
+      <div id="status"></div>
     </div>
-    <div class="field">
-      <label>Scope Admin ID (only super admin)</label>
-      <input id="scopeAdminId" placeholder="e.g. 2">
-    </div>
-    <div class="row">
-      <button id="save">Save</button>
-      <button id="test">Test</button>
-    </div>
-    <div class="row">
-      <button id="openPanel">Open Panel</button>
-      <button id="refreshPanel">Refresh Panel</button>
-    </div>
-    <div class="row">
-      <button id="openSite">Open Website</button>
-    </div>
-    <div id="status"></div>
   </div>
   <script src="popup.js"></script>
 </body>
